@@ -11,14 +11,13 @@ Invariants enforced here:
   fully covered, so a confirm either writes the whole group or nothing.
 """
 from app.engines.fefo import consume_fefo
-from app.engines import combo_partial
 
 
 def combinable(lots: list[dict]) -> list[dict]:
     """Lots allowed into a combo: clean data and qty_remain > 0."""
     return [
         l for l in lots
-        if (combo_partial.allow_dirty_in_plan() or l.get("data_quality", "clean") == "clean") and float(l.get("qty_remain", 0)) > 0
+        if l.get("data_quality", "clean") == "clean" and float(l.get("qty_remain", 0)) > 0
     ]
 
 

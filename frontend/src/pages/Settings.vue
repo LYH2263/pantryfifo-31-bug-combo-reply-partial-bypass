@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1>设置 · 组合半提交</h1>
+    <h1>设置</h1>
     <label>临期预警天数 warn_days</label>
     <input type="number" min="0" v-model.number="warn_days" />
     <button @click="save">保存</button>
