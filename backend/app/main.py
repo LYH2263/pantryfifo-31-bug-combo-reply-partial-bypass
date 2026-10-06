@@ -8,7 +8,6 @@ from app import seed
 from app.db import connect
 from app.engines.fefo import consume_fefo, expire_lots
 from app.modules.recipe_suggest import plan_combo
-from app.engines import combo_partial
 
 app = FastAPI(title="Pantryfifo", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -172,12 +171,14 @@ def combo_confirm(body: ComboIn):
     try:
         c.execute("BEGIN IMMEDIATE")
         plan = plan_combo(_lots_by_item(c, [d["item_id"] for d in demands]), demands)
-        warn = _warn_days(c)
-        for it in combo_partial.apply_ok_lines_only(plan["items"]):
-            _apply_deductions(c, it["deductions"])
         if not plan["ok"]:
-            c.commit()
+            # all-or-nothing: a short line rolls the whole group back —
+            # no partial deductions reach the lots table or the response
+            c.rollback()
             raise HTTPException(409, plan)
+        warn = _warn_days(c)
+        for it in plan["items"]:
+            _apply_deductions(c, it["deductions"])
         now = datetime.now(timezone.utc).isoformat()
         # snapshot is written once and never rewritten — later warn_days
         # edits must not mutate this confirmed group's deduction record
@@ -200,9 +201,9 @@ def consumptions():
     rows = [dict(r) for r in c.execute("SELECT * FROM consumptions ORDER BY id DESC")]
     c.close()
     for r in rows:
+        # stored snapshots are returned verbatim — a later warn_days edit
+        # recomputes the alert bar but never rewrites a confirmed group
         r["result"] = json.loads(r.pop("result_json"))
-        live = int(c.execute("SELECT value FROM settings WHERE key='warn_days'").fetchone()["value"])
-        r["result"] = combo_partial.rebase_snapshot_warn(r["result"], live)
     return rows
 
 @app.post("/api/expire-sweep")

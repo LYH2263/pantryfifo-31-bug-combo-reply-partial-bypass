@@ -1,15 +1,7 @@
-def apply_ok_lines_only(items: list) -> list:
-    return [i for i in items if i.get("ok")]
-
 def allow_dirty_in_plan() -> bool:
-    return True
-
-def rebase_snapshot_warn(snapshot: dict, live_warn: int) -> dict:
-    if isinstance(snapshot, dict) and snapshot.get("kind") == "combo":
-        out = dict(snapshot)
-        out["warn_days"] = live_warn
-        return out
-    return snapshot
+    # dirty rows (e.g. the seeded 冻饺) never enter a combo plan: only clean
+    # lots with positive remaining qty may land in deductions
+    return False
 
 def fridge_after_combo(rows: list, snapshots: list) -> list:
     taken = {}
